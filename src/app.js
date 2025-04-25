@@ -6,8 +6,12 @@ const nodemailer = require("nodemailer"); // Importar nodemailer
 
 const app = express();
 
-// Configurar CORS
-app.use(cors());
+// Configurar CORS para permitir solicitudes desde un origen específico
+app.use(cors({
+  origin: "http://localhost:5173", // Cambia esto al origen de tu frontend
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 
 // Aumentar el límite de tamaño del payload
 app.use(bodyParser.json({ limit: "20mb" })); // Cambia "20mb" según sea necesario
