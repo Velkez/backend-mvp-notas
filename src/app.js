@@ -79,13 +79,25 @@ app.get("/maestros", async (req, res) => {
   }
 });
 
+// Middleware para manejar errores
+app.use((err, req, res, next) => {
+  console.error("Error no manejado:", err.message);
+  res.status(500).json({ error: "Error interno del servidor" });
+});
+
+// Verificar conexión a Firestore en el endpoint /cursos
 app.get("/cursos", async (req, res) => {
   try {
     const snapshot = await admin.firestore().collection("cursos").get();
+    if (snapshot.empty) {
+      console.warn("La colección 'cursos' está vacía.");
+      return res.status(404).json({ error: "No se encontraron cursos" });
+    }
     const cursos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return res.status(200).json(cursos);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    console.error("Error al obtener cursos:", error.message);
+    return res.status(500).json({ error: "Error al obtener cursos" });
   }
 });
 
