@@ -1,25 +1,14 @@
 require("dotenv").config();
-const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require("cors");
-const nodemailer = require("nodemailer"); // Importar nodemailer
+import express from "express";
+import { json, urlencoded } from "body-parser";
+import cors from "cors";
+import { createTransport } from "nodemailer"; // Importar nodemailer
 
 const app = express();
 
 // Configurar CORS para permitir solicitudes desde un origen específico
-app.use(cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = ["http://localhost:5173", "https://tu-dominio.com"];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("No permitido por CORS"));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-}));
+app.use(cors()); // <- Esta línea mágica lo soluciona
+app.use(express.json());
 
 // Middleware para manejar solicitudes preflight (OPTIONS)
 app.options("*", (req, res) => {
@@ -31,8 +20,8 @@ app.options("*", (req, res) => {
 });
 
 // Aumentar el límite de tamaño del payload
-app.use(bodyParser.json({ limit: "20mb" })); // Cambia "20mb" según sea necesario
-app.use(bodyParser.urlencoded({ limit: "20mb", extended: true }));
+app.use(json({ limit: "20mb" })); // Cambia "20mb" según sea necesario
+app.use(urlencoded({ limit: "20mb", extended: true }));
 
 // Middleware de autorización
 app.use((req, res, next) => {
@@ -207,6 +196,10 @@ app.delete("/maestros/:uid", async (req, res) => {
 
 // Asegúrate de que no haya redirecciones en el endpoint /enviar-correo
 app.post("/enviar-correo", async (req, res) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "http://localhost:5173");
+  res.header("Access-Control-Allow-Methods", "POST");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
   const { destinatario, asunto, html, pdfBase64, nombreAdjunto, smtpUser, smtpPass } = req.body;
 
   // Verificar el token secreto
@@ -221,7 +214,7 @@ app.post("/enviar-correo", async (req, res) => {
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
-  const transporter = nodemailer.createTransport({
+  const transporter = createTransport({
     service: "gmail",
     auth: {
       user: smtpUser,
@@ -262,7 +255,7 @@ app.post("/probar-smtp", async (req, res) => {
     return res.status(400).json({ error: "Correo y contraseña son obligatorios" });
   }
 
-  const transporter = nodemailer.createTransport({
+  const transporter = createTransport({
     service: "gmail",
     auth: {
       user: smtpUser,
