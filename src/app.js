@@ -11,6 +11,7 @@ app.use(cors({
   origin: "http://localhost:5173", // Cambia esto al origen de tu frontend
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true, // Permitir credenciales si es necesario
 }));
 
 // Middleware para manejar solicitudes preflight (OPTIONS)
@@ -18,6 +19,7 @@ app.options("*", (req, res) => {
   res.header("Access-Control-Allow-Origin", "http://localhost:5173"); // Cambia esto al origen de tu frontend
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true"); // Permitir credenciales si es necesario
   res.sendStatus(200);
 });
 
@@ -196,6 +198,7 @@ app.delete("/maestros/:uid", async (req, res) => {
   }
 });
 
+// Asegúrate de que no haya redirecciones en el endpoint /enviar-correo
 app.post("/enviar-correo", async (req, res) => {
   const { destinatario, asunto, html, pdfBase64, nombreAdjunto, smtpUser, smtpPass } = req.body;
 
@@ -237,10 +240,10 @@ app.post("/enviar-correo", async (req, res) => {
     console.log(`Intentando enviar correo a: ${destinatario}`);
     await transporter.sendMail(mailOptions);
     console.log(`Correo enviado exitosamente a: ${destinatario}`);
-    res.status(200).json({ mensaje: "Correo enviado correctamente" });
+    return res.status(200).json({ mensaje: "Correo enviado correctamente" }); // Asegúrate de usar `return` aquí
   } catch (error) {
     console.error("Error enviando correo:", error.message);
-    res.status(500).json({ error: "Error enviando correo" });
+    return res.status(500).json({ error: "Error enviando correo" }); // Asegúrate de usar `return` aquí
   }
 });
 
