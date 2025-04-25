@@ -8,18 +8,25 @@ const app = express();
 
 // Configurar CORS para permitir solicitudes desde un origen específico
 app.use(cors({
-  origin: "http://localhost:5173", // Cambia esto al origen de tu frontend
+  origin: (origin, callback) => {
+    const allowedOrigins = ["http://localhost:5173", "https://tu-dominio.com"];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("No permitido por CORS"));
+    }
+  },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true, // Permitir credenciales si es necesario
+  credentials: true,
 }));
 
 // Middleware para manejar solicitudes preflight (OPTIONS)
 app.options("*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", "http://localhost:5173"); // Cambia esto al origen de tu frontend
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "http://localhost:5173");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true"); // Permitir credenciales si es necesario
+  res.header("Access-Control-Allow-Credentials", "true");
   res.sendStatus(200);
 });
 
