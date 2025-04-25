@@ -13,6 +13,14 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
+// Middleware para manejar solicitudes preflight (OPTIONS)
+app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "http://localhost:5173"); // Cambia esto al origen de tu frontend
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(200);
+});
+
 // Aumentar el límite de tamaño del payload
 app.use(bodyParser.json({ limit: "20mb" })); // Cambia "20mb" según sea necesario
 app.use(bodyParser.urlencoded({ limit: "20mb", extended: true }));
