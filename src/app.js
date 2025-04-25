@@ -259,5 +259,16 @@ app.post("/probar-smtp", async (req, res) => {
   }
 });
 
+// Middleware para registrar todas las rutas solicitadas
+app.use((req, res, next) => {
+  console.log(`Ruta solicitada: ${req.method} ${req.path}`);
+  next();
+});
+
+// Endpoint raíz para verificar el estado del servidor
+app.get("/", (req, res) => {
+  res.status(200).json({ mensaje: "Servidor funcionando correctamente" });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`API corriendo en http://localhost:${PORT}`));
