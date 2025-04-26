@@ -2,63 +2,75 @@ require("dotenv").config();
 import express from "express";
 import { json, urlencoded } from "body-parser";
 import cors from "cors";
-import { createTransport } from "nodemailer"; // Importar nodemailer
+import { createTransport } from "nodemailer";
 
+// Configuración de la aplicación
 const app = express();
+const PORT = process.env.PORT || 3000;
 
+// Configuración de CORS
 const corsOptions = {
-  origin: [
-    'https://tu-frontend.com', // Dominio de tu frontend
-    'http://localhost:5173' // Desarrollo local
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true // Si usas cookies o autenticación
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'https://tu-frontend.com',
+      'http://localhost:5173',
+      'https://*.vercel.app'
+    ];
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(allowedOrigin => 
+      origin === allowedOrigin || 
+      origin.includes(allowedOrigin.replace('*', ''))
+    )) {
+      callback(null, true);
+    } else {
+      callback(new Error('Origen no permitido por CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
-// Configurar CORS para permitir solicitudes desde un origen específico
+// Middlewares globales
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
-
-// Middleware para manejar solicitudes preflight (OPTIONS)
-app.options('*', cors(corsOptions)); // Habilitar preflight para todas las rutas
-
-// Aumentar el límite de tamaño del payload
-app.use(json({ limit: "20mb" })); // Cambia "20mb" según sea necesario
+app.use(json({ limit: "20mb" }));
 app.use(urlencoded({ limit: "20mb", extended: true }));
+app.use((req, res, next) => {
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+app.use((req, res, next) => {
+  console.log(`Ruta solicitada: ${req.method} ${req.path}`);
+  next();
+});
 
 // Middleware de autorización
 app.use((req, res, next) => {
-  const excludedPaths = ["/probar-smtp"]; // Endpoints que no requieren autorización
-  if (excludedPaths.includes(req.path)) {
-    console.log(`Endpoint excluido de autorización: ${req.path}`);
-    return next();
-  }
+  const excludedPaths = ["/probar-smtp", "/enviar-correo"];
+  if (req.method === 'OPTIONS') return next();
+  if (excludedPaths.includes(req.path)) return next();
 
   const authHeader = req.headers.authorization;
   if (!authHeader) {
-    console.error("Autorización fallida: No se envió el encabezado Authorization");
     return res.status(403).json({ error: "No autorizado: Falta el encabezado Authorization" });
   }
 
   const token = authHeader.split("Bearer ")[1];
-  if (!token) {
-    console.error("Autorización fallida: Formato del token incorrecto");
-    return res.status(403).json({ error: "No autorizado: Formato del token incorrecto" });
-  }
-
-  console.log("Token recibido:", token);
-  console.log("Token esperado:", process.env.ADMIN_SECRET_TOKEN);
-
-  if (token !== process.env.ADMIN_SECRET_TOKEN) {
-    console.error("Autorización fallida: Token no válido");
+  if (!token || token !== process.env.ADMIN_SECRET_TOKEN) {
     return res.status(403).json({ error: "No autorizado: Token no válido" });
   }
 
-  console.log("Autorización exitosa");
   next();
 });
 
+// Rutas de usuarios
 app.post("/crear-usuario", async (req, res) => {
   const { email, password, nombre, profesion } = req.body;
   if (!email || !password || !nombre || !profesion) {
@@ -88,78 +100,6 @@ app.get("/maestros", async (req, res) => {
     const snapshot = await admin.firestore().collection("usuarios").where("rol", "==", "profesor").get();
     const maestros = snapshot.docs.map(doc => doc.data());
     return res.status(200).json(maestros);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// Middleware para manejar errores
-app.use((err, req, res, next) => {
-  console.error("Error no manejado:", err.message);
-  res.status(500).json({ error: "Error interno del servidor" });
-});
-
-// Verificar conexión a Firestore en el endpoint /cursos
-app.get("/cursos", async (req, res) => {
-  try {
-    const snapshot = await admin.firestore().collection("cursos").get();
-    if (snapshot.empty) {
-      console.warn("La colección 'cursos' está vacía.");
-      return res.status(404).json({ error: "No se encontraron cursos" });
-    }
-    const cursos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    return res.status(200).json(cursos);
-  } catch (error) {
-    console.error("Error al obtener cursos:", error.message);
-    return res.status(500).json({ error: "Error al obtener cursos" });
-  }
-});
-
-app.post("/cursos", async (req, res) => {
-  const { nombre } = req.body;
-  if (!nombre) return res.status(400).json({ error: "Nombre es obligatorio" });
-  try {
-    const docRef = await admin.firestore().collection("cursos").add({ nombre });
-    return res.status(200).json({ id: docRef.id });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete("/cursos/:id", async (req, res) => {
-  try {
-    await admin.firestore().collection("cursos").doc(req.params.id).delete();
-    return res.status(200).json({ message: "Curso eliminado" });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/materias", async (req, res) => {
-  try {
-    const snapshot = await admin.firestore().collection("materias").get();
-    const materias = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    return res.status(200).json(materias);
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.post("/materias", async (req, res) => {
-  const { nombre } = req.body;
-  if (!nombre) return res.status(400).json({ error: "Nombre es obligatorio" });
-  try {
-    const docRef = await admin.firestore().collection("materias").add({ nombre });
-    return res.status(200).json({ id: docRef.id });
-  } catch (error) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete("/materias/:id", async (req, res) => {
-  try {
-    await admin.firestore().collection("materias").doc(req.params.id).delete();
-    return res.status(200).json({ message: "Materia eliminada" });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -198,32 +138,87 @@ app.delete("/maestros/:uid", async (req, res) => {
   }
 });
 
-// Asegúrate de que no haya redirecciones en el endpoint /enviar-correo
+// Rutas de cursos
+app.get("/cursos", async (req, res) => {
+  try {
+    const snapshot = await admin.firestore().collection("cursos").get();
+    if (snapshot.empty) {
+      return res.status(404).json({ error: "No se encontraron cursos" });
+    }
+    const cursos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return res.status(200).json(cursos);
+  } catch (error) {
+    return res.status(500).json({ error: "Error al obtener cursos" });
+  }
+});
+
+app.post("/cursos", async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre) return res.status(400).json({ error: "Nombre es obligatorio" });
+  try {
+    const docRef = await admin.firestore().collection("cursos").add({ nombre });
+    return res.status(200).json({ id: docRef.id });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/cursos/:id", async (req, res) => {
+  try {
+    await admin.firestore().collection("cursos").doc(req.params.id).delete();
+    return res.status(200).json({ message: "Curso eliminado" });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Rutas de materias
+app.get("/materias", async (req, res) => {
+  try {
+    const snapshot = await admin.firestore().collection("materias").get();
+    const materias = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return res.status(200).json(materias);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/materias", async (req, res) => {
+  const { nombre } = req.body;
+  if (!nombre) return res.status(400).json({ error: "Nombre es obligatorio" });
+  try {
+    const docRef = await admin.firestore().collection("materias").add({ nombre });
+    return res.status(200).json({ id: docRef.id });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/materias/:id", async (req, res) => {
+  try {
+    await admin.firestore().collection("materias").doc(req.params.id).delete();
+    return res.status(200).json({ message: "Materia eliminada" });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Rutas de correo
 app.post("/enviar-correo", async (req, res) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "http://localhost:5173");
-  res.header("Access-Control-Allow-Methods", "POST");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
   const { destinatario, asunto, html, pdfBase64, nombreAdjunto, smtpUser, smtpPass } = req.body;
 
-  // Verificar el token secreto
   const authHeader = req.headers.authorization;
   if (!authHeader || authHeader.split("Bearer ")[1] !== process.env.ADMIN_SECRET_TOKEN) {
-    console.error("Autorización fallida: Token no válido o ausente");
     return res.status(403).json({ error: "No autorizado: Token no válido o ausente" });
   }
 
   if (!destinatario || !html || !pdfBase64 || !smtpUser || !smtpPass) {
-    console.error("Faltan datos obligatorios para enviar el correo.");
     return res.status(400).json({ error: "Faltan datos obligatorios" });
   }
 
   const transporter = createTransport({
     service: "gmail",
-    auth: {
-      user: smtpUser,
-      pass: smtpPass,
-    },
+    auth: { user: smtpUser, pass: smtpPass },
   });
 
   const mailOptions = {
@@ -241,17 +236,18 @@ app.post("/enviar-correo", async (req, res) => {
   };
 
   try {
-    console.log(`Intentando enviar correo a: ${destinatario}`);
     await transporter.sendMail(mailOptions);
-    console.log(`Correo enviado exitosamente a: ${destinatario}`);
-    return res.status(200).json({ mensaje: "Correo enviado correctamente" }); // Asegúrate de usar `return` aquí
+    res.header('Access-Control-Expose-Headers', 'X-Custom-Header');
+    res.header('X-Custom-Header', 'mail-sent');
+    return res.status(200).json({ mensaje: "Correo enviado correctamente" });
   } catch (error) {
-    console.error("Error enviando correo:", error.message);
-    return res.status(500).json({ error: "Error enviando correo" }); // Asegúrate de usar `return` aquí
+    return res.status(500).json({ 
+      error: "Error en el servidor",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Endpoint para probar SMTP
 app.post("/probar-smtp", async (req, res) => {
   const { smtpUser, smtpPass } = req.body;
 
@@ -261,33 +257,27 @@ app.post("/probar-smtp", async (req, res) => {
 
   const transporter = createTransport({
     service: "gmail",
-    auth: {
-      user: smtpUser,
-      pass: smtpPass,
-    },
+    auth: { user: smtpUser, pass: smtpPass },
   });
 
   try {
-    // Intentar verificar la conexión con el servidor SMTP
     await transporter.verify();
-    console.log(`Conexión SMTP exitosa para el usuario: ${smtpUser}`);
-    res.status(200).json({ mensaje: "Conexión SMTP exitosa" });
+    return res.status(200).json({ mensaje: "Conexión SMTP exitosa" });
   } catch (error) {
-    console.error("Error verificando conexión SMTP:", error.message);
-    res.status(403).json({ error: "No se pudo autenticar con el servidor SMTP" });
+    return res.status(403).json({ error: "No se pudo autenticar con el servidor SMTP" });
   }
 });
 
-// Middleware para registrar todas las rutas solicitadas
-app.use((req, res, next) => {
-  console.log(`Ruta solicitada: ${req.method} ${req.path}`);
-  next();
-});
-
-// Endpoint raíz para verificar el estado del servidor
+// Endpoint raíz
 app.get("/", (req, res) => {
   res.status(200).json({ mensaje: "Servidor funcionando correctamente" });
 });
 
-const PORT = process.env.PORT || 3000;
+// Middleware para manejar errores
+app.use((err, req, res, next) => {
+  console.error("Error no manejado:", err.message);
+  res.status(500).json({ error: "Error interno del servidor" });
+});
+
+// Iniciar el servidor
 app.listen(PORT, () => console.log(`API corriendo en http://localhost:${PORT}`));
