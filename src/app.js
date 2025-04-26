@@ -1,42 +1,21 @@
 require("dotenv").config();
 import express from "express";
 import { json, urlencoded } from "body-parser";
-import cors from "cors";
 import { createTransport } from "nodemailer";
 
 // Configuración de la aplicación
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuración de CORS
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'https://tu-frontend.com',
-      'http://localhost:5173',
-      'https://*.vercel.app'
-    ];
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.some(allowedOrigin => 
-      origin === allowedOrigin || 
-      origin.includes(allowedOrigin.replace('*', ''))
-    )) {
-      callback(null, true);
-    } else {
-      callback(new Error('Origen no permitido por CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  credentials: true,
-  maxAge: 86400,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
+// Middleware global para CORS simplificado
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "*");
+  res.header("Access-Control-Allow-Methods", "*");
+  next();
+});
 
 // Middlewares globales
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(json({ limit: "20mb" }));
 app.use(urlencoded({ limit: "20mb", extended: true }));
@@ -279,5 +258,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor" });
 });
 
-// Iniciar el servidor
-app.listen(PORT, () => console.log(`API corriendo en http://localhost:${PORT}`));
+// Exportación para Vercel
+export default app;
+
+// Iniciar el servidor solo si no es un entorno de Vercel
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => console.log(`API corriendo en http://localhost:${PORT}`));
+}
