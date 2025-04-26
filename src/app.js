@@ -2,6 +2,14 @@ require("dotenv").config();
 import express from "express";
 import { json, urlencoded } from "body-parser";
 import { createTransport } from "nodemailer";
+import admin from "firebase-admin"; // Importar Firebase Admin SDK
+
+// Inicializar Firebase
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: process.env.FIREBASE_DATABASE_URL
+});
 
 // Configuración de la aplicación
 const app = express();
@@ -259,9 +267,4 @@ app.use((err, req, res, next) => {
 });
 
 // Exportación para Vercel
-export default app;
-
-// Iniciar el servidor solo si no es un entorno de Vercel
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => console.log(`API corriendo en http://localhost:${PORT}`));
-}
+module.exports = app;
