@@ -6,18 +6,22 @@ import { createTransport } from "nodemailer"; // Importar nodemailer
 
 const app = express();
 
+const corsOptions = {
+  origin: [
+    'https://tu-frontend.com', // Dominio de tu frontend
+    'http://localhost:3000' // Desarrollo local
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // Si usas cookies o autenticación
+};
+
 // Configurar CORS para permitir solicitudes desde un origen específico
-app.use(cors()); // <- Esta línea mágica lo soluciona
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Middleware para manejar solicitudes preflight (OPTIONS)
-app.options("*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "http://localhost:5173");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.sendStatus(200);
-});
+app.options('*', cors(corsOptions)); // Habilitar preflight para todas las rutas
 
 // Aumentar el límite de tamaño del payload
 app.use(json({ limit: "20mb" })); // Cambia "20mb" según sea necesario
