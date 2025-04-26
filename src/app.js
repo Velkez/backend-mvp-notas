@@ -9,7 +9,7 @@ const app = express();
 const corsOptions = {
   origin: [
     'https://tu-frontend.com', // Dominio de tu frontend
-    'http://localhost:3000' // Desarrollo local
+    'http://localhost:5173' // Desarrollo local
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
