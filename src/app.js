@@ -6,11 +6,17 @@ const nodemailer = require("nodemailer"); // Importar nodemailer
 
 const app = express();
 
-// Middleware global para CORS simplificado
+// Middleware CORS
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "*");
-  res.header("Access-Control-Allow-Methods", "*");
+  res.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+
+  // Respuesta inmediata para solicitudes OPTIONS
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   next();
 });
 
@@ -20,7 +26,13 @@ app.use(bodyParser.urlencoded({ limit: "20mb", extended: true }));
 
 // Middleware de autorización
 app.use((req, res, next) => {
-  const excludedPaths = ["/probar-smtp"]; // Endpoints que no requieren autorización
+  const excludedPaths = ["/probar-smtp"];
+  
+  if (req.method === "OPTIONS" || excludedPaths.includes(req.path)) {
+    console.log(`Solicitud permitida sin autorización: ${req.method} ${req.path}`);
+    return next();
+  }
+  
   if (excludedPaths.includes(req.path)) {
     console.log(`Endpoint excluido de autorización: ${req.path}`);
     return next();
