@@ -3,6 +3,18 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const nodemailer = require("nodemailer"); // Importar nodemailer
+const admin = require("firebase-admin"); // Importar Firebase Admin
+
+// Inicializar Firebase Admin
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
+  });
+}
 
 const app = express();
 
@@ -19,17 +31,6 @@ app.use((req, res, next) => {
 
   next();
 });
-
-// Inicializar Firebase Admin
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    }),
-  });
-}
 
 // Aumentar el límite de tamaño del payload
 app.use(bodyParser.json({ limit: "20mb" })); // Cambia "20mb" según sea necesario
